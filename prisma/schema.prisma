@@ -1,0 +1,225 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  name      String
+  password  String
+  role      String   @default("STAFF") // ADMIN, MANAGER, STAFF, VIEWER
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  goatsCreated       Goat[]            @relation("CreatedBy")
+  goatsUpdated       Goat[]            @relation("UpdatedBy")
+  breedingRecords    BreedingRecord[]
+  healthRecords      HealthRecord[]
+  feedSchedules      FeedSchedule[]
+  salesRecords       SalesRecord[]
+  expenses           Expense[]
+  inventoryItems     Inventory[]
+}
+
+model Goat {
+  id            String    @id @default(cuid())
+  tagNo         String    @unique
+  name          String?
+  breed         String    // Barbari, Boer, Mixed
+  gender        String    // Male, Female
+  dateOfBirth   DateTime
+  sireId        String?
+  damId         String?
+  weight        Float?
+  purpose       String    // Breeding, Meat, Sale
+  status        String    @default("Active") // Active, Sold, Dead, Culled
+  purchasePrice Float?
+  purchaseDate  DateTime?
+  source        String?   // Born, Purchased
+  color         String?
+  bodyCondition String?   // 1-5 scale
+  notes         String?
+  createdBy     String
+  updatedBy     String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  creator       User?     @relation("CreatedBy", fields: [createdBy], references: [id])
+  updater       User?     @relation("UpdatedBy", fields: [updatedBy], references: [id])
+
+  // Relations
+  sire                Goat?            @relation("GoatLineage", fields: [sireId], references: [id], onDelete: SetNull, onUpdate: NoAction)
+  dam                 Goat?            @relation("GoatLineage", fields: [damId], references: [id], onDelete: SetNull, onUpdate: NoAction)
+  offspring           Goat[]           @relation("GoatLineage")
+
+  breedingAsMale      BreedingRecord[] @relation("MaleGoat")
+  breedingAsFemale    BreedingRecord[] @relation("FemaleGoat")
+  healthRecords       HealthRecord[]
+  feedRecords         FeedRecord[]
+  salesRecords        SalesRecord[]
+  weightRecords       WeightRecord[]
+}
+
+model BreedingRecord {
+  id              String    @id @default(cuid())
+  referenceNo     String    @unique
+  maleGoatId      String
+  femaleGoatId    String
+  breedingDate    DateTime
+  breedingMethod  String    // Natural, AI
+  expectedKidDate DateTime?
+  actualKidDate   DateTime?
+  numberOfKids    Int?
+  kidOutcome      String?   // Live, Stillborn, Aborted
+  notes           String?
+  createdBy       String
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  maleGoat        Goat      @relation("MaleGoat", fields: [maleGoatId], references: [id])
+  femaleGoat      Goat      @relation("FemaleGoat", fields: [femaleGoatId], references: [id])
+  creator         User      @relation(fields: [createdBy], references: [id])
+}
+
+model HealthRecord {
+  id            String   @id @default(cuid())
+  referenceNo   String   @unique
+  goatId        String
+  recordType    String   // Vaccination, Treatment, CheckUp, Deworming
+  date          DateTime
+  condition     String?
+  diagnosis     String?
+  treatment     String?
+  medicine      String?
+  dosage        String?
+  veterinarian  String?
+  nextDueDate   DateTime?
+  cost          Float?
+  notes         String?
+  createdBy     String
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  goat          Goat     @relation(fields: [goatId], references: [id])
+  creator       User     @relation(fields: [createdBy], references: [id])
+}
+
+model FeedSchedule {
+  id          String   @id @default(cuid())
+  name        String
+  feedType    String   // Concentrate, Roughage, Mineral, Water
+  quantity    Float
+  unit        String   // kg, liters
+  frequency   String   // Daily, Weekly
+  startDate   DateTime
+  endDate     DateTime?
+  ageGroup    String?  // Kid, Adult, Pregnant, Lactating
+  notes       String?
+  createdBy   String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  creator     User     @relation(fields: [createdBy], references: [id])
+  feedRecords FeedRecord[]
+}
+
+model FeedRecord {
+  id             String       @id @default(cuid())
+  goatId         String
+  feedScheduleId String
+  date           DateTime
+  quantityGiven  Float
+  cost           Float?
+  notes          String?
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  goat           Goat         @relation(fields: [goatId], references: [id])
+  feedSchedule   FeedSchedule @relation(fields: [feedScheduleId], references: [id])
+}
+
+model WeightRecord {
+  id        String   @id @default(cuid())
+  goatId    String
+  date      DateTime
+  weight    Float
+  notes     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  goat      Goat     @relation(fields: [goatId], references: [id])
+}
+
+model SalesRecord {
+  id            String   @id @default(cuid())
+  referenceNo   String   @unique
+  goatId        String
+  saleDate      DateTime
+  buyerName     String
+  buyerContact  String?
+  salePrice     Float
+  paymentMethod String   // Cash, UPI, Bank Transfer
+  paymentStatus String   @default("Pending") // Pending, Completed
+  weight        Float?
+  notes         String?
+  createdBy     String
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  goat          Goat     @relation(fields: [goatId], references: [id])
+  creator       User     @relation(fields: [createdBy], references: [id])
+}
+
+model Expense {
+  id          String   @id @default(cuid())
+  referenceNo String   @unique
+  category    String   // Feed, Medicine, Labor, Infrastructure, Transport, Other
+  description String
+  amount      Float
+  date        DateTime
+  vendor      String?
+  paymentMode String   // Cash, UPI, Bank Transfer
+  billNo      String?
+  notes       String?
+  createdBy   String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  creator     User     @relation(fields: [createdBy], references: [id])
+}
+
+model Inventory {
+  id          String   @id @default(cuid())
+  itemName    String
+  category    String   // Feed, Medicine, Equipment, Supplement
+  quantity    Float
+  unit        String
+  minStock    Float?
+  maxStock    Float?
+  price       Float?
+  supplier    String?
+  lastPurchase DateTime?
+  expiryDate  DateTime?
+  notes       String?
+  createdBy   String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  creator     User     @relation(fields: [createdBy], references: [id])
+}
+
+model ReportLog {
+  id          String   @id @default(cuid())
+  reportType  String
+  generatedBy String
+  parameters  String?  // JSON string
+  createdAt   DateTime @default(now())
+}
